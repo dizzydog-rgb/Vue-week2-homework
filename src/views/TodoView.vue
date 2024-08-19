@@ -1,0 +1,132 @@
+<template>
+  <div>
+    <h1>This is an Todo page</h1>
+  </div>
+
+  <div>
+    <h2>註冊</h2>
+    <input type="email" placeholder="Email" v-model="signupField.email" />
+    <input type="text" placeholder="Passwoerd" v-model="signupField.password" />
+    <input type="text" placeholder="nickname" v-model="signupField.nickname" />
+    {{ signupField }}
+    <button type="button" @click="signup">註冊</button>
+    UID: {{ signupRes }}
+  </div>
+
+  <div>
+    <h2>登入</h2>
+    <input type="email" placeholder="Email" v-model="signInField.email" />
+    <input type="text" placeholder="Passwoerd" v-model="signInField.password" />
+    {{ signInField }}
+    <button type="button" @click="signIn">登入</button>
+    UID: {{ signInRes }}
+  </div>
+
+  <div>
+    <h2>驗證</h2>
+    <div v-if="user.uid">
+      <p>UID: {{ user.uid }}</p>
+      <p>nickname: {{ user.nickname }}</p>
+    </div>
+    <div v-else>你還沒有登入</div>
+  </div>
+
+  <div>
+    <h2>登出</h2>
+    <input type="text" v-model="tokenSignOut" placeholder="Token" />
+    <button type="button" @click="signOut">登出</button>
+  </div>
+</template>
+
+<script setup>
+import axios from 'axios'
+import { onMounted, ref } from 'vue'
+
+const api = 'https://todolist-api.hexschool.io'
+
+// 註冊
+const signupField = ref({
+  email: '',
+  password: '',
+  nickname: ''
+})
+
+const signupRes = ref('')
+
+const signup = async () => {
+  console.log(`${api}/users/sign_up`)
+
+  try {
+    const res = await axios.post(`${api}/users/sign_up`, signupField.value)
+
+    console.log(res)
+    signupRes.value = res.data.uid
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 登入
+const signInField = ref({
+  email: '',
+  password: ''
+})
+
+const signInRes = ref('')
+
+const signIn = async () => {
+  try {
+    const res = await axios.post(`${api}/users/sign_in`, signInField.value)
+
+    console.log(res)
+    signInRes.value = res.data.token
+
+    document.cookie = `customTodoToken=${res.data.token}`
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+// 驗證登入
+const user = ref({
+  nickname: '',
+  uid: ''
+})
+
+onMounted(async () => {
+  const token = document.cookie.replace(
+    /(?:(?:^|.*;\s*)customTodoToken\s*=\s*([^;]*).*$)|^.*$/,
+    '$1'
+  )
+  console.log(token)
+
+  const res = await axios.get(`${api}/users/checkout`, {
+    headers: {
+      Authorization: token
+    }
+  })
+  console.log(res)
+  user.value = res.data
+})
+
+// 登出
+const tokenSignOut = ref('')
+
+const signOut = async () => {
+  try {
+    const res = await axios.post(
+      `${api}/users/sign_out`,
+      {},
+      {
+        headers: {
+          Authorization: tokenSignOut.value
+        }
+      }
+    )
+
+    console.log(res.data)
+  } catch (error) {
+    console.log(error)
+  }
+}
+</script>
