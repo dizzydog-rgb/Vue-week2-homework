@@ -36,6 +36,22 @@
     <input type="text" v-model="tokenSignOut" placeholder="Token" />
     <button type="button" @click="signOut">登出</button>
   </div>
+
+  <!-- Todo list -->
+  <h2>Todo list</h2>
+  <div v-if="token">
+    <input type="text" placeholder="New Todo" v-model="newTodo" />
+    <button type="button" @click="addTodo">Add Todo</button>
+    <ul>
+      <li v-for="(todo, index) in todos" :key="index">
+        {{ todo.content }} {{ todo.status ? '完成' : '未完成' }} | {{ todoEdit[todo.id] }}
+        <input type="text" placeholder="更新值" @change="updateTodoEdit($event, todo.id)" />
+        <button @click="deleteTodo(todo.id)">Delete</button>
+        <button @click="updateTodo(todo.id)">Update</button>
+        <button @click="toggleStatus(todo.id)">Toggle Status</button>
+      </li>
+    </ul>
+  </div>
 </template>
 
 <script setup>
@@ -105,7 +121,7 @@ onMounted(async () => {
       Authorization: token
     }
   })
-  console.log(res)
+  // console.log(res)
   user.value = res.data
 })
 
@@ -129,4 +145,100 @@ const signOut = async () => {
     console.log(error)
   }
 }
+
+// Todo list
+const todos = ref([])
+const newTodo = ref('')
+const todoEdit = ref({})
+const token = ref('')
+
+// 在組件掛載時獲取 token
+onMounted(() => {
+  token.value = document.cookie.replace(
+    /(?:(?:^|.*;\s*)customTodoToken\s*=\s*([^;]*).*$)|^.*$/,
+    '$1'
+  )
+  if (token.value) {
+    getTodos()
+  }
+})
+
+const getTodos = async () => {
+  const res = await axios.get(`${api}/todos`, {
+    headers: {
+      Authorization: token.value
+    }
+  })
+  todos.value = res.data.data
+}
+
+const addTodo = async () => {
+  if (!newTodo.value) return
+
+  const todo = {
+    content: newTodo.value
+  }
+  await axios.post(`${api}/todos`, todo, {
+    headers: {
+      Authorization: token.value
+    }
+  })
+  newTodo.value = ''
+  getTodos()
+}
+
+const deleteTodo = async (id) => {
+  await axios.delete(`${api}/todos/${id}`, {
+    headers: {
+      Authorization: token.value
+    }
+  })
+  getTodos()
+}
+
+const updateTodo = async (id) => {
+  const todo = todos.value.find((todo) => todo.id === id)
+  todo.content = todoEdit.value[id]
+  await axios.put(`${api}/todos/${id}`, todo, {
+    headers: {
+      Authorization: token.value
+    }
+  })
+  getTodos()
+  todoEdit.value = {
+    ...todoEdit.value,
+    [id]: ''
+  }
+}
+
+const toggleStatus = async (id) => {
+  await axios.patch(
+    `${api}/todos/${id}/toggle`,
+    {},
+    {
+      headers: {
+        Authorization: token.value
+      }
+    }
+  )
+  getTodos()
+}
+
+const updateTodoEdit = (event, id) => {
+  todoEdit.value = {
+    ...todoEdit.value,
+    [id]: event.target.value
+  }
+}
+
+const TodoToken = document.cookie
+  .split('; ')
+  .find((row) => row.startsWith('hexschoolTodo='))
+  ?.split('=')[1]
+
+onMounted(() => {
+  if (TodoToken) {
+    token.value = TodoToken
+  }
+})
 </script>
